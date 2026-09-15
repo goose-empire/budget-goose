@@ -92,16 +92,34 @@ def append_to_section(ws, row_data_b_to_e, is_fixed=False, is_bold=False):
 def apply_row_formatting(ws, row_idx, is_bold=False):
     """
     Applies custom styling to newly added rows:
-    - Font Family: Roboto Mono
-    - Font Size: 10
+    - Columns B, C, E: Font Family Roboto Mono, Size 10
+    - Column D (Category): Font Family Roboto Mono, Size 8
     - Column C (Amount): Currency formatting '€#,##0.00; -€#,##0.00; €0.00'
+    - Optional: Bold text
     """
     try:
-        # Format Columns B:E with Roboto Mono, 10pt
-        ws.format(f"B{row_idx}:E{row_idx}", {
+        # Format Columns B, C, E with Roboto Mono, 10pt
+        ws.format(f"B{row_idx}:C{row_idx}", {
             "textFormat": {
                 "fontFamily": "Roboto Mono",
                 "fontSize": 10,
+                #"bold": is_bold
+            }
+        })
+        ws.format(f"E{row_idx}", {
+            "textFormat": {
+                "fontFamily": "Roboto Mono",
+                "fontSize": 10,
+                #"bold": is_bold
+            }
+        })
+
+        # Format Column D (Category) specifically with Font Size 8
+        ws.format(f"D{row_idx}", {
+            "textFormat": {
+                "fontFamily": "Roboto Mono",
+                "fontSize": 8,
+                #"bold": is_bold
             }
         })
         
@@ -109,11 +127,12 @@ def apply_row_formatting(ws, row_idx, is_bold=False):
         ws.format(f"C{row_idx}", {
             "numberFormat": {
                 "type": "CURRENCY",
-                "pattern": "+€#,##0.00; -€#,##0.00; €0.00"
+                "pattern": "€#,##0.00; -€#,##0.00; €0.00"
             },
             "textFormat": {
                 "fontFamily": "Roboto Mono",
                 "fontSize": 10,
+                #"bold": is_bold
             }
         })
     except Exception:
