@@ -158,7 +158,7 @@ with st.expander("⚙️ Advanced Options (Fixed, Travel Mode & Installments)"):
 
     enable_installments = st.checkbox("Split into Monthly Installments")
     if enable_installments:
-        installments_count = st.number_input("Number of Months (N)", min_value=2, max_value=24, value=3, step=1)
+        installments_count = st.number_input("Number of Months (N)", min_value=2, max_value=12, value=3, step=1)
     else:
         installments_count = 1
 
@@ -187,7 +187,7 @@ if st.button("Submit to Budget", type="primary", use_container_width=True):
             append_to_section(ws, [banner_text, "", "", ""], is_fixed=False, is_bold=True)
             st.info(f"Added bold banner: '{banner_text}' under DAILY in '{tab_name}'")
 
-        # 2) Process Expense / Income / Installments
+        # 2) Process Expense / Income / Instalments
         if enable_installments and installments_count > 1 and num_amount > 0:
             split_amount = round(signed_amount / installments_count, 2)
             
