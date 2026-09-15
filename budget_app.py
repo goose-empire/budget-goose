@@ -25,8 +25,8 @@ except Exception as e:
 
 def append_to_table(ws, row_data_b_to_e):
     """
-    Updates columns B through E directly, preserving any existing 
-    formulas in Column A.
+    Updates columns B through E directly (4 items: Position, Amount, Category, Notes),
+    preserving any existing formulas in Column A.
     """
     all_rows = ws.get_all_values()
     target_row = None
@@ -55,8 +55,8 @@ def get_or_create_worksheet(sheet_name):
         ws = sh.worksheet(sheet_name)
     except gspread.exceptions.WorksheetNotFound:
         ws = sh.add_worksheet(title=sheet_name, rows=100, cols=10)
-        # Leave Col A blank for formula calculation
-        append_to_table(ws, ["", "Position", "Amount", "Categorie", "Notes"])
+        # Pass 4 headers corresponding to Columns B, C, D, E
+        append_to_table(ws, ["Position", "Amount", "Categorie", "Notes"])
     return ws
 
 def format_month_tab(dt):
@@ -112,8 +112,8 @@ if st.button("Submit to Budget", type="primary", use_container_width=True):
                 ws = get_or_create_worksheet(tab_name)
                 
                 inst_note = f"{notes} ({i+1}/{installments_count})" if notes else f"{i+1}/{installments_count}"
-                # Column A is left empty ("") to allow Excel formula auto-calculation
-                row_data_b_to_e = ["", position, split_amount, category, inst_note]
+                # 4-item list matching Columns B to E
+                row_data_b_to_e = [position, split_amount, category, inst_note]
                 append_to_table(ws, row_data_b_to_e)
                 
             st.success(f"Successfully split {signed_amount:.2f}€ into {installments_count} monthly entries of {split_amount:.2f}€!")
@@ -122,8 +122,8 @@ if st.button("Submit to Budget", type="primary", use_container_width=True):
         elif amount > 0:
             tab_name = format_month_tab(current_dt)
             ws = get_or_create_worksheet(tab_name)
-            # Column A is left empty ("")
-            row_data_b_to_e = ["", position, signed_amount, category, notes]
+            # 4-item list matching Columns B to E
+            row_data_b_to_e = [position, signed_amount, category, notes]
             append_to_table(ws, row_data_b_to_e)
             st.success(f"Logged {signed_amount:.2f}€ for '{position}' in '{tab_name}'!")
 
@@ -137,5 +137,6 @@ if st.button("Submit to Budget", type="primary", use_container_width=True):
             else:
                 banner_text = f"--- END {trip_name.upper()} ---"
                 
-            append_to_table(ws, ["", banner_text, "", "", ""])
+            # 4-item list matching Columns B to E
+            append_to_table(ws, [banner_text, "", "", ""])
             st.info(f"Added banner: '{banner_text}' to '{tab_name}'")
