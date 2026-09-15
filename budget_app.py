@@ -100,14 +100,14 @@ def apply_row_formatting(ws, row_idx, is_bold=False):
             "textFormat": {
                 "fontFamily": "Roboto Mono",
                 "fontSize": 10,
-                "bold": is_bold
+                #"bold": is_bold
             }
         })
         ws.format(f"E{row_idx}", {
             "textFormat": {
                 "fontFamily": "Roboto Mono",
                 "fontSize": 10,
-                "bold": is_bold
+                #"bold": is_bold
             }
         })
 
@@ -116,7 +116,7 @@ def apply_row_formatting(ws, row_idx, is_bold=False):
             "textFormat": {
                 "fontFamily": "Roboto Mono",
                 "fontSize": 8,
-                "bold": is_bold
+               # "bold": is_bold
             }
         })
         
@@ -129,7 +129,7 @@ def apply_row_formatting(ws, row_idx, is_bold=False):
             "textFormat": {
                 "fontFamily": "Roboto Mono",
                 "fontSize": 10,
-                "bold": is_bold
+                #"bold": is_bold
             }
         })
     except Exception:
