@@ -9,7 +9,7 @@ import gspread
 # -----------------------------------------------------------------------------
 st.set_page_config(page_title="Expense Tracker", page_icon="💸", layout="centered")
 
-st.title("🪿 Budget Goose")
+st.title("🪿 Budget Goose ")
 
 # Connect to Google Sheets via Streamlit Secrets
 @st.cache_resource
