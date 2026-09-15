@@ -3,6 +3,7 @@ import pandas as pd
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 import gspread
+import plotly.express as px
 
 # -----------------------------------------------------------------------------
 # 1. SETUP & AUTHENTICATION
@@ -47,7 +48,6 @@ def append_to_section(ws, row_data_b_to_e, is_fixed=False, is_bold=False):
     target_row = None
     
     if is_fixed:
-        # Route to FIXED & RECURRING section
         search_start = (fixed_start_idx + 1) if fixed_start_idx else 2
         search_end = daily_start_idx if daily_start_idx else len(all_rows) + 1
         
@@ -66,7 +66,6 @@ def append_to_section(ws, row_data_b_to_e, is_fixed=False, is_bold=False):
             return target_row
 
     else:
-        # Route to DAILY section
         search_start = (daily_start_idx + 1) if daily_start_idx else 2
         
         for idx in range(search_start, len(all_rows) + 1):
@@ -80,11 +79,9 @@ def append_to_section(ws, row_data_b_to_e, is_fixed=False, is_bold=False):
         if target_row is None:
             target_row = len(all_rows) + 1
 
-    # Update range B:E for target row
     cell_range = f"B{target_row}:E{target_row}"
     ws.update(cell_range, [row_data_b_to_e])
     
-    # Apply cell formatting (Roboto Mono, 10pt, Currency on Col C)
     apply_row_formatting(ws, target_row, is_bold)
             
     return target_row
@@ -92,47 +89,26 @@ def append_to_section(ws, row_data_b_to_e, is_fixed=False, is_bold=False):
 def apply_row_formatting(ws, row_idx, is_bold=False):
     """
     Applies custom styling to newly added rows:
-    - Columns B, C, E: Font Family Roboto Mono, Size 10
-    - Column D (Category): Font Family Roboto Mono, Size 8
-    - Column C (Amount): Currency formatting '€#,##0.00; -€#,##0.00; €0.00'
-    - Optional: Bold text
+    - Font Family: Roboto Mono
+    - Font Size: 10
+    - Column C (Amount): Currency formatting '+€#,##0.00; -€#,##0.00; €0.00'
     """
     try:
-        # Format Columns B, C, E with Roboto Mono, 10pt
-        ws.format(f"B{row_idx}:C{row_idx}", {
+        ws.format(f"B{row_idx}:E{row_idx}", {
             "textFormat": {
                 "fontFamily": "Roboto Mono",
                 "fontSize": 10,
-                #"bold": is_bold
-            }
-        })
-        ws.format(f"E{row_idx}", {
-            "textFormat": {
-                "fontFamily": "Roboto Mono",
-                "fontSize": 10,
-                #"bold": is_bold
-            }
-        })
-
-        # Format Column D (Category) specifically with Font Size 8
-        ws.format(f"D{row_idx}", {
-            "textFormat": {
-                "fontFamily": "Roboto Mono",
-                "fontSize": 8,
-                #"bold": is_bold
             }
         })
         
-        # Apply Currency formatting specifically to Column C (Amount)
         ws.format(f"C{row_idx}", {
             "numberFormat": {
                 "type": "CURRENCY",
-                "pattern": "€#,##0.00; -€#,##0.00; €0.00"
+                "pattern": "+€#,##0.00; -€#,##0.00; €0.00"
             },
             "textFormat": {
                 "fontFamily": "Roboto Mono",
                 "fontSize": 10,
-                #"bold": is_bold
             }
         })
     except Exception:
@@ -173,8 +149,6 @@ with st.expander("⚙️ Advanced Options (Fixed, Travel Mode & Installments)"):
     
     is_fixed_entry = st.checkbox("FIXED & RECURRING (Rent, Utilities, Fixed Subscriptions)")
 
-    # st.markdown("---")
-
     enable_installments = st.checkbox("Split into Monthly Installments")
     if enable_installments:
         installments_count = st.number_input("Number of Months (N)", min_value=2, max_value=12, value=3, step=1)
@@ -185,6 +159,46 @@ with st.expander("⚙️ Advanced Options (Fixed, Travel Mode & Installments)"):
     
     travel_action = st.radio("Trip Banner", ["None", "Start Trip", "End Trip"], horizontal=True)
     trip_name = st.text_input("Trip Name", placeholder="e.g., MALAGA, BADLANDS 🏜️")
+
+# NEW FEATURE: Pie Chart Breakdown Accordion
+with st.expander("📊 Monthly Category Breakdown (Pie Chart)"):
+    try:
+        current_dt = datetime.now()
+        tab_name = format_month_tab(current_dt)
+        ws_chart = get_or_create_worksheet(tab_name)
+        
+        # Read summary columns H & I (index 8 & 9) from the active monthly sheet
+        all_vals = ws_chart.get_all_values()
+        cat_data = []
+        
+        for r in all_vals:
+            if len(r) >= 9:
+                cat_name = r[7].strip()  # Column H (Category)
+                val_str = r[8].strip().replace("€", "").replace(",", "").replace("+", "")  # Column I (Amount)
+                if cat_name and cat_name != "Work":  # Exclude Income/Work row
+                    try:
+                        val_num = abs(float(val_str))
+                        if val_num > 0:
+                            cat_data.append({"Category": cat_name, "Amount": val_num})
+                    except ValueError:
+                        pass
+                        
+        if cat_data:
+            df_chart = pd.DataFrame(cat_data)
+            fig = px.pie(
+                df_chart, 
+                values="Amount", 
+                names="Category", 
+                title=f"Expense Share - {tab_name}",
+                hole=0.4,
+                color_discrete_sequence=px.colors.qualitative.Pastel
+            )
+            fig.update_traces(textinfo="percent+label")
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("No expense category summary data found for this month yet.")
+    except Exception as chart_err:
+        st.warning(f"Could not render category chart: {chart_err}")
 
 # -----------------------------------------------------------------------------
 # 4. SUBMIT & EXECUTE GOOGLE SHEETS WRITE
@@ -206,7 +220,7 @@ if st.button("Submit to Budget", type="primary", use_container_width=True):
             append_to_section(ws, [banner_text, "", "", ""], is_fixed=False, is_bold=True)
             st.info(f"Added bold banner: '{banner_text}' under DAILY in '{tab_name}'")
 
-        # 2) Process Expense / Income / Instalments
+        # 2) Process Expense / Income / Installments
         if enable_installments and installments_count > 1 and num_amount > 0:
             split_amount = round(signed_amount / installments_count, 2)
             
