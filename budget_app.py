@@ -23,10 +23,10 @@ except Exception as e:
     st.error(f"Google Sheets Connection Error: {e}")
     st.stop()
 
-def append_to_table(ws, row_data_b_to_e):
+def append_to_table(ws, row_data_b_to_e, is_bold=False):
     """
     Updates columns B through E directly (4 items: Position, Amount, Category, Notes),
-    preserving any existing formulas in Column A.
+    preserving any existing formulas in Column A. Option to apply bold formatting.
     """
     all_rows = ws.get_all_values()
     target_row = None
@@ -48,6 +48,15 @@ def append_to_table(ws, row_data_b_to_e):
     # Update ONLY columns B through E (Position, Amount, Category, Notes)
     cell_range = f"B{target_row}:E{target_row}"
     ws.update(cell_range, [row_data_b_to_e])
+    
+    # Apply bold formatting if requested (e.g., for Trip Banners)
+    if is_bold:
+        try:
+            ws.format(f"B{target_row}", {"textFormat": {"bold": True}})
+        except Exception:
+            pass
+            
+    return target_row
 
 def get_or_create_worksheet(sheet_name):
     """Fetches a monthly worksheet tab or creates it with default headers if missing."""
@@ -69,7 +78,10 @@ st.subheader("Add Log Entry")
 
 entry_type = st.radio("Type", ["Expense", "Income"], horizontal=True)
 position = st.text_input("Position / Description", placeholder="e.g., Aldi, Bike24, Hotel Granada")
-amount = st.number_input("Amount (€)", min_value=0.0, step=1.00, format="%.2f")
+
+# UX Update: Amount input field starts blank using placeholder value=None
+amount = st.number_input("Amount (€)", min_value=0.0, step=1.00, format="%.2f", value=None, placeholder="0.00")
+
 category = st.selectbox("Category", [
     "Household", "Food", "Sport", "Travel", "Car & Transport", 
     "Shopping", "Party & Cafe", "Invest", "Donat", "Work"
@@ -95,48 +107,47 @@ with st.expander("⚙️ Advanced Options (Travel Mode & Installments)"):
 # 4. SUBMIT & EXECUTE GOOGLE SHEETS WRITE
 # -----------------------------------------------------------------------------
 if st.button("Submit to Budget", type="primary", use_container_width=True):
-    if amount <= 0 and not position and travel_action == "None":
+    num_amount = amount if amount is not None else 0.0
+    
+    if num_amount <= 0 and not position and travel_action == "None":
         st.error("Please provide a valid description and amount.")
     else:
         current_dt = datetime.now()
-        # Ensure negative sign for expenses, positive sign for income
-        signed_amount = -abs(amount) if entry_type == "Expense" else abs(amount)
-        
-        # A) Process Installments
-        if enable_installments and installments_count > 1:
+        signed_amount = -abs(num_amount) if entry_type == "Expense" else abs(num_amount)
+        tab_name = format_month_tab(current_dt)
+        ws = get_or_create_worksheet(tab_name)
+
+        # 1) Start Trip Banner (Logged BEFORE the expense)
+        if travel_action == "Start Trip" and trip_name:
+            banner_text = f"--- START {trip_name.upper()} ---"
+            # Send data ONLY to Column B, formatted as BOLD
+            append_to_table(ws, [banner_text, "", "", ""], is_bold=True)
+            st.info(f"Added bold banner: '{banner_text}' to '{tab_name}'")
+
+        # 2) Process Expense / Income / Installments
+        if enable_installments and installments_count > 1 and num_amount > 0:
             split_amount = round(signed_amount / installments_count, 2)
             
             for i in range(installments_count):
                 target_dt = current_dt + relativedelta(months=i)
-                tab_name = format_month_tab(target_dt)
-                ws = get_or_create_worksheet(tab_name)
+                target_tab = format_month_tab(target_dt)
+                target_ws = get_or_create_worksheet(target_tab)
                 
                 inst_note = f"{notes} ({i+1}/{installments_count})" if notes else f"{i+1}/{installments_count}"
-                # 4-item list matching Columns B to E
                 row_data_b_to_e = [position, split_amount, category, inst_note]
-                append_to_table(ws, row_data_b_to_e)
+                append_to_table(target_ws, row_data_b_to_e)
                 
             st.success(f"Successfully split {signed_amount:.2f}€ into {installments_count} monthly entries of {split_amount:.2f}€!")
         
-        # B) Single Entry Logging
-        elif amount > 0:
-            tab_name = format_month_tab(current_dt)
-            ws = get_or_create_worksheet(tab_name)
-            # 4-item list matching Columns B to E
-            row_data_b_to_e = [position, signed_amount, category, notes]
+        elif num_amount > 0 or position:
+            row_data_b_to_e = [position, signed_amount if num_amount > 0 else "", category if num_amount > 0 else "", notes]
             append_to_table(ws, row_data_b_to_e)
-            st.success(f"Logged {signed_amount:.2f}€ for '{position}' in '{tab_name}'!")
+            if num_amount > 0:
+                st.success(f"Logged {signed_amount:.2f}€ for '{position}' in '{tab_name}'!")
 
-        # C) Process Travel Banner (Start/End Trip)
-        if travel_action != "None" and trip_name:
-            tab_name = format_month_tab(current_dt)
-            ws = get_or_create_worksheet(tab_name)
-            
-            if travel_action == "Start Trip":
-                banner_text = f"--- START {trip_name.upper()} ---"
-            else:
-                banner_text = f"--- END {trip_name.upper()} ---"
-                
-            # 4-item list matching Columns B to E
-            append_to_table(ws, [banner_text, "", "", ""])
-            st.info(f"Added banner: '{banner_text}' to '{tab_name}'")
+        # 3) End Trip Banner (Logged AFTER the expense)
+        if travel_action == "End Trip" and trip_name:
+            banner_text = f"--- END {trip_name.upper()} ---"
+            # Send data ONLY to Column B, formatted as BOLD
+            append_to_table(ws, [banner_text, "", "", ""], is_bold=True)
+            st.info(f"Added bold banner: '{banner_text}' to '{tab_name}'")
