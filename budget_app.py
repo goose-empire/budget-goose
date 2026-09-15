@@ -9,17 +9,15 @@ import gspread
 # -----------------------------------------------------------------------------
 st.set_page_config(page_title="Expense Tracker", page_icon="💸", layout="centered")
 
-st.title("🪿 Budget Goose ")
+st.title("🪿 Budget Goose")
 
 # Connect to Google Sheets via Streamlit Secrets
 @st.cache_resource
 def get_gspread_client():
-    # Uses Streamlit secrets (st.secrets["gcp_service_account"])
     return gspread.service_account_from_dict(st.secrets["gcp_service_account"])
 
 try:
     gc = get_gspread_client()
-    # Replace with your exact Google Sheet name or key
     sh = gc.open("BUDGET-2026") 
 except Exception as e:
     st.error(f"Google Sheets Connection Error: {e}")
@@ -27,28 +25,31 @@ except Exception as e:
 
 def append_to_table(ws, row_data):
     """
-    Finds the correct insertion point inside a formatted Google Sheets Table
-    and inserts the data into the main table body.
+    Inserts data cleanly inside a formatted Google Sheets Table object
+    by scanning all rows for the first available empty slot or inserting a row.
     """
-    # Get all values in Column A to find populated rows
-    col_a_values = ws.col_values(1)
+    # Fetch all data values across columns A to E
+    all_rows = ws.get_all_values()
     
-    # Find the row index to insert (directly after the last entry in Column A)
-    # If empty rows exist at the end of the table (like rows 78-80), use the first empty slot
-    first_empty_row = len(col_a_values) + 1
+    target_row = None
     
-    # Check if we are inside a table with pre-existing empty rows
-    # Iterate through column A to find any blank rows before the table end
-    for idx, val in enumerate(col_a_values[1:], start=2):
-        if not val.strip():
-            # Check if Column B is also empty to confirm it's an available row
-            col_b_val = ws.cell(idx, 2).value
-            if not col_b_val or not col_b_val.strip():
-                first_empty_row = idx
-                break
+    # Iterate through existing rows starting from row 2 (skipping headers)
+    for idx, row in enumerate(all_rows[1:], start=2):
+        # Read Column A (Type) and Column B (Position)
+        col_a = row[0].strip() if len(row) > 0 else ""
+        col_b = row[1].strip() if len(row) > 1 else ""
+        
+        # Identify empty slots inside the table (ignoring banner titles like '--- MILAN ---')
+        if not col_a and not col_b:
+            target_row = idx
+            break
+            
+    # If no empty slot exists inside the current table range, append right after the last content row
+    if target_row is None:
+        target_row = len(all_rows) + 1
 
-    # Insert data at the exact target row using range updates to preserve table styling
-    cell_range = f"A{first_empty_row}:E{first_empty_row}"
+    # Update range A{target_row}:E{target_row} to keep entries inside the table boundaries
+    cell_range = f"A{target_row}:E{target_row}"
     ws.update(cell_range, [row_data])
 
 
@@ -58,11 +59,10 @@ def get_or_create_worksheet(sheet_name):
         ws = sh.worksheet(sheet_name)
     except gspread.exceptions.WorksheetNotFound:
         ws = sh.add_worksheet(title=sheet_name, rows=100, cols=10)
-        # Default header row matching your layout
-        ws.append_row(["Type", "Position", "Amount", "Categorie", "Notes"])
+        # Default header row matching your Excel layout
+        append_to_table(ws, ["Type", "Position", "Amount", "Categorie", "Notes"])
     return ws
 
-# Helper to format month tab names (e.g., "Sep 26", "Oct 26")
 def format_month_tab(dt):
     return dt.strftime("%b %y")
 
@@ -85,14 +85,12 @@ notes = st.text_input("Notes", placeholder="e.g., PP 30 days, refund")
 # -----------------------------------------------------------------------------
 with st.expander("⚙️ Advanced Options (Travel Mode & Installments)"):
     
-    # Feature 1: Installment Payments
     enable_installments = st.checkbox("Split into Monthly Installments")
     if enable_installments:
         installments_count = st.number_input("Number of Months (N)", min_value=2, max_value=24, value=3, step=1)
     else:
         installments_count = 1
 
-    # Feature 2: Travel Mode Headers
     st.markdown("---")
     travel_action = st.radio("Trip Banner", ["None", "Start Trip", "End Trip"], horizontal=True)
     trip_name = st.text_input("Trip Name", placeholder="e.g., MALAGA, BADLANDS 🏜️")
@@ -118,7 +116,7 @@ if st.button("Submit to Budget", type="primary", use_container_width=True):
                 
                 inst_note = f"{notes} ({i+1}/{installments_count})" if notes else f"{i+1}/{installments_count}"
                 row_data = [entry_type, position, split_amount, category, inst_note]
-                ws.append_row(row_data)
+                append_to_table(ws, row_data)
                 
             st.success(f"Successfully split {signed_amount:.2f}€ into {installments_count} monthly entries of {split_amount:.2f}€!")
         
@@ -127,7 +125,7 @@ if st.button("Submit to Budget", type="primary", use_container_width=True):
             tab_name = format_month_tab(current_dt)
             ws = get_or_create_worksheet(tab_name)
             row_data = [entry_type, position, signed_amount, category, notes]
-            ws.append_row(row_data)
+            append_to_table(ws, row_data)
             st.success(f"Logged {signed_amount:.2f}€ for '{position}' in '{tab_name}'!")
 
         # C) Process Travel Banner (Start/End Trip)
@@ -140,6 +138,5 @@ if st.button("Submit to Budget", type="primary", use_container_width=True):
             else:
                 banner_text = f"--- END {trip_name.upper()} ---"
                 
-            # Appends banner matching your sheet structure
-            ws.append_row(["", banner_text, "", "", ""])
+            append_to_table(ws, ["", banner_text, "", "", ""])
             st.info(f"Added banner: '{banner_text}' to '{tab_name}'")
