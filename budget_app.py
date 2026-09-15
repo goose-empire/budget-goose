@@ -23,10 +23,10 @@ except Exception as e:
     st.error(f"Google Sheets Connection Error: {e}")
     st.stop()
 
-def append_to_table(ws, row_data):
+def append_to_table(ws, row_data_b_to_e):
     """
-    Inserts data cleanly inside a formatted Google Sheets Table object
-    by scanning all rows for the first available empty slot or inserting a row.
+    Updates columns B through E directly, preserving any existing 
+    formulas in Column A.
     """
     all_rows = ws.get_all_values()
     target_row = None
@@ -45,10 +45,9 @@ def append_to_table(ws, row_data):
     if target_row is None:
         target_row = len(all_rows) + 1
 
-    # Update range A{target_row}:E{target_row}
-    cell_range = f"A{target_row}:E{target_row}"
-    ws.update(cell_range, [row_data])
-
+    # Update ONLY columns B through E (Position, Amount, Category, Notes)
+    cell_range = f"B{target_row}:E{target_row}"
+    ws.update(cell_range, [row_data_b_to_e])
 
 def get_or_create_worksheet(sheet_name):
     """Fetches a monthly worksheet tab or creates it with default headers if missing."""
