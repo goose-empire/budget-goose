@@ -113,8 +113,8 @@ if st.button("Submit to Budget", type="primary", use_container_width=True):
                 
                 inst_note = f"{notes} ({i+1}/{installments_count})" if notes else f"{i+1}/{installments_count}"
                 # Column A is left empty ("") to allow Excel formula auto-calculation
-                row_data = ["", position, split_amount, category, inst_note]
-                append_to_table(ws, row_data)
+                row_data_b_to_e = ["", position, split_amount, category, inst_note]
+                append_to_table(ws, row_data_b_to_e)
                 
             st.success(f"Successfully split {signed_amount:.2f}€ into {installments_count} monthly entries of {split_amount:.2f}€!")
         
@@ -123,8 +123,8 @@ if st.button("Submit to Budget", type="primary", use_container_width=True):
             tab_name = format_month_tab(current_dt)
             ws = get_or_create_worksheet(tab_name)
             # Column A is left empty ("")
-            row_data = ["", position, signed_amount, category, notes]
-            append_to_table(ws, row_data)
+            row_data_b_to_e = ["", position, signed_amount, category, notes]
+            append_to_table(ws, row_data_b_to_e)
             st.success(f"Logged {signed_amount:.2f}€ for '{position}' in '{tab_name}'!")
 
         # C) Process Travel Banner (Start/End Trip)
