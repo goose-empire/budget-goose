@@ -20,7 +20,7 @@ def get_gspread_client():
 try:
     gc = get_gspread_client()
     # Replace with your exact Google Sheet name or key
-    sh = gc.open("BUDGET 2026") 
+    sh = gc.open("BUDGET-2026") 
 except Exception as e:
     st.error(f"Google Sheets Connection Error: {e}")
     st.stop()
