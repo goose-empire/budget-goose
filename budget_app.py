@@ -7,7 +7,7 @@ import gspread
 # -----------------------------------------------------------------------------
 # 1. SETUP & AUTHENTICATION
 # -----------------------------------------------------------------------------
-st.set_page_config(page_title="Expense Tracker", page_icon="💸", layout="centered")
+st.set_page_config(page_title="Budget Goose", page_icon="🪿", layout="centered")
 
 st.title("🪿 Budget Goose")
 
@@ -29,6 +29,7 @@ def append_to_section(ws, row_data_b_to_e, is_fixed=False, is_bold=False):
     - If is_fixed=True: Places entry under 'FIXED & RECURRING' before 'DAILY' starts.
     - If is_fixed=False: Places entry floating below 'DAILY'.
     Preserves Column A Excel formulas by writing strictly to Columns B:E.
+    Applies default formatting: Roboto Mono, 10pt, and € currency formatting on Column C.
     """
     all_rows = ws.get_all_values()
     
@@ -46,11 +47,10 @@ def append_to_section(ws, row_data_b_to_e, is_fixed=False, is_bold=False):
     target_row = None
     
     if is_fixed:
-        # Route to FIXED & RECURRING section (between FIXED header and DAILY header)
+        # Route to FIXED & RECURRING section
         search_start = (fixed_start_idx + 1) if fixed_start_idx else 2
         search_end = daily_start_idx if daily_start_idx else len(all_rows) + 1
         
-        # Look for the first empty slot in Column B within the FIXED section
         for idx in range(search_start, search_end):
             row = all_rows[idx - 1] if idx <= len(all_rows) else []
             col_b = row[1].strip() if len(row) > 1 else ""
@@ -59,19 +59,14 @@ def append_to_section(ws, row_data_b_to_e, is_fixed=False, is_bold=False):
                 target_row = idx
                 break
                 
-        # If no blank slot is available, insert a new row right above DAILY
         if target_row is None:
             target_row = daily_start_idx if daily_start_idx else len(all_rows) + 1
             ws.insert_row([""] + row_data_b_to_e, target_row)
-            if is_bold:
-                try:
-                    ws.format(f"B{target_row}", {"textFormat": {"bold": True}})
-                except Exception:
-                    pass
+            apply_row_formatting(ws, target_row, is_bold)
             return target_row
 
     else:
-        # Route to DAILY section (below DAILY header)
+        # Route to DAILY section
         search_start = (daily_start_idx + 1) if daily_start_idx else 2
         
         for idx in range(search_start, len(all_rows) + 1):
@@ -89,13 +84,40 @@ def append_to_section(ws, row_data_b_to_e, is_fixed=False, is_bold=False):
     cell_range = f"B{target_row}:E{target_row}"
     ws.update(cell_range, [row_data_b_to_e])
     
-    if is_bold:
-        try:
-            ws.format(f"B{target_row}", {"textFormat": {"bold": True}})
-        except Exception:
-            pass
+    # Apply cell formatting (Roboto Mono, 10pt, Currency on Col C)
+    apply_row_formatting(ws, target_row, is_bold)
             
     return target_row
+
+def apply_row_formatting(ws, row_idx, is_bold=False):
+    """
+    Applies custom styling to newly added rows:
+    - Font Family: Roboto Mono
+    - Font Size: 10
+    - Column C (Amount): Currency formatting '€#,##0.00; -€#,##0.00; €0.00'
+    """
+    try:
+        # Format Columns B:E with Roboto Mono, 10pt
+        ws.format(f"B{row_idx}:E{row_idx}", {
+            "textFormat": {
+                "fontFamily": "Roboto Mono",
+                "fontSize": 10,
+            }
+        })
+        
+        # Apply Currency formatting specifically to Column C (Amount)
+        ws.format(f"C{row_idx}", {
+            "numberFormat": {
+                "type": "CURRENCY",
+                "pattern": "+€#,##0.00; -€#,##0.00; €0.00"
+            },
+            "textFormat": {
+                "fontFamily": "Roboto Mono",
+                "fontSize": 10,
+            }
+        })
+    except Exception:
+        pass
 
 def get_or_create_worksheet(sheet_name):
     """Fetches a monthly worksheet tab or creates it with default headers if missing."""
@@ -130,12 +152,10 @@ notes = st.text_input("Notes", placeholder="e.g., PP 30 days, refund")
 # -----------------------------------------------------------------------------
 with st.expander("⚙️ Advanced Options (Fixed, Travel Mode & Installments)"):
     
-    # Feature 1: Fixed & Recurring Checkbox
     is_fixed_entry = st.checkbox("FIXED & RECURRING (Rent, Utilities, Fixed Subscriptions)")
 
-    st.markdown("---")
+    # st.markdown("---")
 
-    # Feature 2: Installment Payments
     enable_installments = st.checkbox("Split into Monthly Installments")
     if enable_installments:
         installments_count = st.number_input("Number of Months (N)", min_value=2, max_value=24, value=3, step=1)
@@ -144,7 +164,6 @@ with st.expander("⚙️ Advanced Options (Fixed, Travel Mode & Installments)"):
 
     st.markdown("---")
     
-    # Feature 3: Travel Mode Banners
     travel_action = st.radio("Trip Banner", ["None", "Start Trip", "End Trip"], horizontal=True)
     trip_name = st.text_input("Trip Name", placeholder="e.g., MALAGA, BADLANDS 🏜️")
 
@@ -179,7 +198,6 @@ if st.button("Submit to Budget", type="primary", use_container_width=True):
                 
                 inst_note = f"{notes} ({i+1}/{installments_count})" if notes else f"{i+1}/{installments_count}"
                 row_data_b_to_e = [position, split_amount, category, inst_note]
-                # Installments automatically default to FIXED & RECURRING or explicit choice
                 append_to_section(target_ws, row_data_b_to_e, is_fixed=True)
                 
             st.success(f"Successfully split {signed_amount:.2f}€ into {installments_count} monthly entries under FIXED & RECURRING!")
