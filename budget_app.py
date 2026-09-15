@@ -25,13 +25,40 @@ except Exception as e:
     st.error(f"Google Sheets Connection Error: {e}")
     st.stop()
 
+def append_to_table(ws, row_data):
+    """
+    Finds the correct insertion point inside a formatted Google Sheets Table
+    and inserts the data into the main table body.
+    """
+    # Get all values in Column A to find populated rows
+    col_a_values = ws.col_values(1)
+    
+    # Find the row index to insert (directly after the last entry in Column A)
+    # If empty rows exist at the end of the table (like rows 78-80), use the first empty slot
+    first_empty_row = len(col_a_values) + 1
+    
+    # Check if we are inside a table with pre-existing empty rows
+    # Iterate through column A to find any blank rows before the table end
+    for idx, val in enumerate(col_a_values[1:], start=2):
+        if not val.strip():
+            # Check if Column B is also empty to confirm it's an available row
+            col_b_val = ws.cell(idx, 2).value
+            if not col_b_val or not col_b_val.strip():
+                first_empty_row = idx
+                break
+
+    # Insert data at the exact target row using range updates to preserve table styling
+    cell_range = f"A{first_empty_row}:E{first_empty_row}"
+    ws.update(cell_range, [row_data])
+
+
 def get_or_create_worksheet(sheet_name):
     """Fetches a monthly worksheet tab or creates it with default headers if missing."""
     try:
         ws = sh.worksheet(sheet_name)
     except gspread.exceptions.WorksheetNotFound:
         ws = sh.add_worksheet(title=sheet_name, rows=100, cols=10)
-        # Default header row matching your Excel layout
+        # Default header row matching your layout
         ws.append_row(["Type", "Position", "Amount", "Categorie", "Notes"])
     return ws
 
