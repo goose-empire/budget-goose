@@ -12,6 +12,25 @@ st.set_page_config(page_title="Budget Goose", page_icon="🪿", layout="centered
 
 st.title("🪿 Budget Goose")
 
+# -----------------------------------------------------------------------------
+# CUSTOM STYLING (EXCEL CATEGORY COLORS)
+# -----------------------------------------------------------------------------
+st.markdown("""
+<style>
+    /* Category Color Map */
+    .cat-work { background-color: #B2D7F7; color: #1B4965; padding: 4px 10px; border-radius: 12px; font-weight: bold; }
+    .cat-household { background-color: #FCD5B5; color: #7A3E1D; padding: 4px 10px; border-radius: 12px; font-weight: bold; }
+    .cat-food { background-color: #BA0000; color: #FFFFFF; padding: 4px 10px; border-radius: 12px; font-weight: bold; }
+    .cat-shopping { background-color: #E2C2F6; color: #4A154B; padding: 4px 10px; border-radius: 12px; font-weight: bold; }
+    .cat-travel { background-color: #D3F1B5; color: #2D5A27; padding: 4px 10px; border-radius: 12px; font-weight: bold; }
+    .cat-sport { background-color: #8B4513; color: #FFFFFF; padding: 4px 10px; border-radius: 12px; font-weight: bold; }
+    .cat-party { background-color: #FFB3D9; color: #8A004B; padding: 4px 10px; border-radius: 12px; font-weight: bold; }
+    .cat-donat { background-color: #0F7A4A; color: #FFFFFF; padding: 4px 10px; border-radius: 12px; font-weight: bold; }
+    .cat-invest { background-color: #0056B3; color: #FFFFFF; padding: 4px 10px; border-radius: 12px; font-weight: bold; }
+    .cat-transport { background-color: #EAEAEA; color: #111111; padding: 4px 10px; border-radius: 12px; font-weight: bold; }
+</style>
+""", unsafe_allow_html=True)
+
 # Connect to Google Sheets via Streamlit Secrets
 @st.cache_resource
 def get_gspread_client():
